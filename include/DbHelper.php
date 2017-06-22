@@ -222,5 +222,4 @@ class DbHelper {
         $result = $stmt->get_result();
         return $result;
     }
-   //test changes peretdsdsdsds
 }
