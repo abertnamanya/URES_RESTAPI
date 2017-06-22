@@ -17,6 +17,47 @@ $app->post('/storegcmtoken', function ($request, $res, $args) {
     }
     //  echoRespnse(200, $response);
 });
+
+
+//chat groups
+
+
+$app->post('/chat_groups', function($request, $res, $args) {
+    $student_id = $request->getParam('student_id');
+    $db = new DbHelper();
+    $result = $db->fetch_chat_groups($student_id);
+    $response = array();
+    while ($row = $result->fetch_assoc()) {
+        $data['group_id'] = $row['group_id'];
+        $data['group_name'] = $row['group_name'];
+        array_push($response, $data);
+    }
+    echoRespnse(200, $response);
+});
+
+//register group
+
+$app->post('/add_group', function($request, $res, $args) {
+    $student_id = $request->getParam('student_id');
+    $group_name = $request->getParam('group_name');
+    $db = new DbHelper();
+    $group_id = $db->create_group($group_name);
+    //role
+    $role = "admin";
+    if ($group_id) {
+        //register user as member(admin
+        $db->register_members($student_id, $role, $group_id);
+        echo 'Group created successfully';
+    } else {
+        echo 'Error has occurried';
+    }
+});
+
+
+
+
+
+
 $app->post('/send', function ($request, $res, $args) {
 
     //Getting request parameters

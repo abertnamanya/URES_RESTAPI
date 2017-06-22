@@ -192,6 +192,39 @@ class DbHelper {
         return false;
     }
 
+    //fetch chat groups
+
+
+    public function fetch_chat_groups($student_id) {
+        $stmt = $this->con->prepare('select * from chatgroups g left join group_members m on(g.group_id=m.group_group_id) where student_student_id=?');
+        $stmt->bind_param('s', $student_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $stmt->close();
+        return $result;
+    }
+
+    //create group
+    public function create_group($group_name) {
+        $time_stamp = $this->getDatetimeNow();
+        $stmt = $this->con->prepare('insert into chatgroups(group_name,_when_added)values(?,?)');
+        $stmt->bind_param('ss', $group_name, $time_stamp);
+        $stmt->execute();
+        $group_id = $this->con->insert_id;
+        $stmt->close();
+        return $group_id;
+    }
+
+//register group members
+
+    public function register_members($student_id, $role, $group_id) {
+        $time_stamp = $this->getDatetimeNow();
+        $stmt = $this->con->prepare('insert into group_members(role,student_student_id,group_group_id,_when_added)values(?,?,?,?)');
+        $stmt->bind_param('ssss', $role, $student_id, $group_id, $time_stamp);
+        $stmt->execute();
+        $stmt->close();
+    }
+
     //sending message to other devices
     public function getRegistrationTokens($student_id) {
         $stmt = $this->con->prepare("SELECT token FROM tokens WHERE NOT student_student_id = ?;");
@@ -222,4 +255,5 @@ class DbHelper {
         $result = $stmt->get_result();
         return $result;
     }
+
 }
