@@ -272,6 +272,26 @@ class DbHelper {
         return false;
     }
 
+    //fetch group memembers
+    public function groupMembers($group_id, $student_id) {
+        $stmt = $this->con->prepare("select member_id,firstName,lastName from group_members m left join student s on(m.student_student_id=s.student_id)where group_group_id=? && not student_student_id=?");
+        $stmt->bind_param('ss', $group_id, $student_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $stmt->close();
+        return $result;
+    }
+
+    //fetch member group role
+    public function user_group_role($student_id, $group_id) {
+        $stmt = $this->con->prepare('select role from group_members where student_student_id=? && group_group_id=?');
+        $stmt->bind_param('ss', $student_id, $group_id);
+        $stmt->execute();
+        $data = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $data;
+    }
+
     //Function to add message to the database
     public function addMessage($student_id, $message) {
 //        $time_stamp = $this->getDatetimeNow();

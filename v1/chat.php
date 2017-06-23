@@ -115,7 +115,23 @@ $app->post('/send_group_msg', function($request, $res, $args) {
 
 //fetch group members
 $app->post('/group_members', function($request, $res, $args) {
-    
+    $student_id = $request->getParam('student_id');
+    $group_id = $request->getParam('group_id');
+    $db = new DbHelper();
+    $response = array();
+    //get user group role
+    $data = $db->user_group_role($student_id,$group_id);
+    $response['user_role'] = $data['role'];
+    $response['members'] = array();
+    $result = $db->groupMembers($group_id, $student_id);
+    while ($row = mysqli_fetch_array($result)) {
+        $array = array();
+        $array['member_id'] = $row['member_id'];
+        $array['firstName'] = $row['firstName'];
+        $array['lastName'] = $row['lastName'];
+        array_push($response['members'], $array);
+    }
+    echoRespnse(200, $response);
 });
 
 
