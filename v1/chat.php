@@ -69,12 +69,54 @@ $app->post('/group_messages', function($request, $res, $args) {
         $temp['message'] = $row['message'];
         $temp['userid'] = $row['student_student_id'];
         $temp['sentat'] = $row['time_stamp'];
-        $temp['name'] = $row['firstName'];
+        $temp['name'] = $row['firstName'] . " " . $row['lastName'];
         array_push($response['messages'], $temp);
     }
     echoRespnse(200, $response);
 });
+$app->post('/send_group_msg', function($request, $res, $args) {
+    $student_id = $request->getParam('student_id');
+    $group_id = $request->getParam('group_id');
+    $message = $request->getParam('message');
+    $name = $request->getParam('name');
+    $group_name = $request->getParam('group_name');
+    //Creating a gcm object
+    $gcm = new gcm();
 
+    //Creating db object
+    $db = new DbHelper();
+
+    //Creating response array
+    $response = array();
+    $res = array();
+    //Creating an array containing message data
+//    $pushdata = array();
+    //Adding title which would be the username
+    $res['data']['title'] = $name;
+    //Adding the message to be sent
+    $res['data']['message'] = $message;
+    //Adding user id to identify the user who sent the message
+    $res['data']['id'] = $student_id;
+    $res['data']['chat_room'] = "group_chat";
+    $res['data']['group_id'] = $group_id;
+    $res['data']['group_name'] = $group_name;
+    //array('data', $pushdata);
+    //If message is successfully added to database
+    if ($db->sendGroupMessage($student_id, $group_id, $message)) {
+        //Sending push notification with gcm object
+        $data = $gcm->sendMessage($db->getGroupTokens($student_id, $group_id), $res);
+        echo $data;
+//        $response['message'] = $data;
+//        $response['error'] = false;
+    } else {
+        $response['error'] = true;
+    }
+});
+
+//fetch group members
+$app->post('/group_members', function($request, $res, $args) {
+    
+});
 
 
 
@@ -116,6 +158,10 @@ $app->post('/send', function ($request, $res, $args) {
     }
 //    echoRespnse(200, $response);
 });
+
+
+
+
 
 $app->get('/messages', function () use ($app) {
     $db = new DbHelper();

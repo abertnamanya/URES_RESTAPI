@@ -238,14 +238,38 @@ class DbHelper {
         return $tokens;
     }
 
+    //group devices
+    public function getGroupTokens($student_id, $group_id) {
+        $stmt = $this->con->prepare("SELECT token FROM tokens t left join student s on(t.student_student_id=s.student_id)"
+                . " left join group_members g on(s.student_id=g.student_student_id) WHERE NOT t.student_student_id = ? && group_group_id=?;");
+        $stmt->bind_param("ss", $student_id, $group_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $tokens = array();
+        while ($row = $result->fetch_assoc()) {
+            array_push($tokens, $row['token']);
+        }
+        return $tokens;
+    }
+
     //fetch group chat messges
     public function group_messages($student_id, $group_id) {
-        $stmt = $this->con->prepare("SELECT group_message_id,message,m.student_student_id,firstName,m._when_added as time_stamp FROM group_messages m inner join  student s on(m.student_student_id = s.student_id)inner join chatgroups g  on( m.group_group_id=g.group_id) inner join group_members gm on(g.group_id=gm.group_group_id)"
+        $stmt = $this->con->prepare("SELECT group_message_id,message,m.student_student_id,firstName,lastName,m._when_added as time_stamp FROM group_messages m inner join  student s on(m.student_student_id = s.student_id)inner join chatgroups g  on( m.group_group_id=g.group_id) inner join group_members gm on(g.group_id=gm.group_group_id)"
                 . " where gm.student_student_id=? and m.group_group_id=?  ORDER BY group_message_id ASC;");
         $stmt->bind_param('ss', $student_id, $group_id);
         $stmt->execute();
         $result = $stmt->get_result();
         return $result;
+    }
+
+    //send group chat message
+    public function sendGroupMessage($student_id, $group_id, $message) {
+        $time_stamp = $this->getDatetimeNow();
+        $stmt = $this->con->prepare("INSERT INTO group_messages(message,group_group_id,student_student_id,_when_added) VALUES (?,?,?,?)");
+        $stmt->bind_param("ssss", $message, $group_id, $student_id, $time_stamp);
+        if ($stmt->execute())
+            return true;
+        return false;
     }
 
     //Function to add message to the database
