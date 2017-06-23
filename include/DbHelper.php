@@ -238,6 +238,16 @@ class DbHelper {
         return $tokens;
     }
 
+    //fetch group chat messges
+    public function group_messages($student_id, $group_id) {
+        $stmt = $this->con->prepare("SELECT group_message_id,message,m.student_student_id,firstName,m._when_added as time_stamp FROM group_messages m inner join  student s on(m.student_student_id = s.student_id)inner join chatgroups g  on( m.group_group_id=g.group_id) inner join group_members gm on(g.group_id=gm.group_group_id)"
+                . " where gm.student_student_id=? and m.group_group_id=?  ORDER BY group_message_id ASC;");
+        $stmt->bind_param('ss', $student_id, $group_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result;
+    }
+
     //Function to add message to the database
     public function addMessage($student_id, $message) {
 //        $time_stamp = $this->getDatetimeNow();

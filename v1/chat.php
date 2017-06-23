@@ -53,7 +53,27 @@ $app->post('/add_group', function($request, $res, $args) {
     }
 });
 
+//get group messages 
 
+$app->post('/group_messages', function($request, $res, $args) {
+    $student_id = $request->getParam('student_id');
+    $group_id = $request->getParam('group_id');
+    $db = new DbHelper();
+    $messages = $db->group_messages($student_id, $group_id);
+    $response = array();
+    $response['error'] = false;
+    $response['messages'] = array();
+    while ($row = mysqli_fetch_array($messages)) {
+        $temp = array();
+        $temp['id'] = $row['group_message_id'];
+        $temp['message'] = $row['message'];
+        $temp['userid'] = $row['student_student_id'];
+        $temp['sentat'] = $row['time_stamp'];
+        $temp['name'] = $row['firstName'];
+        array_push($response['messages'], $temp);
+    }
+    echoRespnse(200, $response);
+});
 
 
 
