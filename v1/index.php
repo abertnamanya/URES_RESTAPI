@@ -39,6 +39,26 @@ $app->post('/login', function ($request, $response, $args) {
         echoRespnse(200, $feed);
     }
 });
+//change student  password
+
+$app->post('/changePassword', function($request, $res, $args) {
+    $old_password = $request->getParam('old_password');
+    $new_password = $request->getParam('new_password');
+    $student_id = $request->getParam('student_id');
+    $db = new DbHelper();
+    $result = $db->checkPassword($student_id, $old_password);
+    //match the old password
+    $response = array();
+    if ($result) {
+        $db->change_password($student_id, $new_password);
+        $response['message'] = "Password changed successful";
+    } else {
+        $response['message'] = "Old password not matching";
+    }
+    echoRespnse(200, $response);
+});
+
+
 //fetch student academic years registed
 $app->post('/registered_years', function ($request, $response, $args) {
     $db = new DbHelper();

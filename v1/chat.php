@@ -74,6 +74,8 @@ $app->post('/group_messages', function($request, $res, $args) {
     }
     echoRespnse(200, $response);
 });
+
+//send/add group message
 $app->post('/send_group_msg', function($request, $res, $args) {
     $student_id = $request->getParam('student_id');
     $group_id = $request->getParam('group_id');
@@ -120,9 +122,10 @@ $app->post('/group_members', function($request, $res, $args) {
     $db = new DbHelper();
     $response = array();
     //get user group role
-    $data = $db->user_group_role($student_id,$group_id);
+    $data = $db->user_group_role($student_id, $group_id);
     $response['user_role'] = $data['role'];
     $response['members'] = array();
+    $response['error'] = false;
     $result = $db->groupMembers($group_id, $student_id);
     while ($row = mysqli_fetch_array($result)) {
         $array = array();
@@ -134,6 +137,29 @@ $app->post('/group_members', function($request, $res, $args) {
     echoRespnse(200, $response);
 });
 
+//search student to add to group
+
+$app->post('/search_student', function($request, $res, $args) {
+    $university_id = $request->getParam('university_id');
+    $student_reg = $request->getParam('student_reg');
+    $group_id = $request->getParam('group_id');
+    $db = new DbHelper();
+    $result = $db->search_student($university_id, $student_reg);
+    $response = array();
+    if ($result) {
+        ///$response['student'] = array();
+        $response['student_id'] = $result['student_id'];
+        $response['firstName'] = $result['firstName'];
+        $response['lastName'] = $result['lastName'];
+        $response['group_id'] = $group_id;
+        $response['error'] = false;
+        $response['message'] = "student found";
+    } else {
+        $response['error'] = TRUE;
+        $response['message'] = "student not found please try again";
+    }
+    echoRespnse(200, $response);
+});
 
 
 $app->post('/send', function ($request, $res, $args) {

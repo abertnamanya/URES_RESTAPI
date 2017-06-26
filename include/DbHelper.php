@@ -55,6 +55,27 @@ class DbHelper {
         return $student;
     }
 
+    //match student old password
+    function checkPassword($student_id, $old_password) {
+        $stmt = $this->con->prepare("SELECT * FROM student_auth WHERE student_student_id=? and password_auth=?");
+        $stmt->bind_param("ss", $student_id, $old_password);
+        $stmt->execute();
+        $stmt->store_result();
+        //Getting the result
+        $num_rows = $stmt->num_rows;
+        //closing the statment
+        $stmt->close();
+        return $num_rows > 0;
+    }
+
+    //change password
+    function change_password($student_id, $new_password) {
+        $stmt = $this->con->prepare('update student_auth set password_auth=? where student_student_id=?');
+        $stmt->bind_param('ss', $new_password, $student_id);
+        $stmt->execute();
+        $stmt->close();
+    }
+
     //registered academic years
     public function studentAcademicYears($student_id) {
         $stmt = $this->con->prepare('select *,ra._when_added as time_stamp from registered_academic_years ra LEFT JOIN academic_years ac ON(ra.academic_years_years_id=ac.academic_year_id)'
@@ -223,6 +244,15 @@ class DbHelper {
         $stmt->bind_param('ssss', $role, $student_id, $group_id, $time_stamp);
         $stmt->execute();
         $stmt->close();
+    }
+
+    //search student 
+    public function search_student($university_id, $student_reg) {
+        $stmt = $this->con->prepare('select * from student where universities_university_id=? && registration_number=?');
+        $stmt->bind_param('ss', $university_id, $student_reg);
+        $stmt->execute();
+        $result = $stmt->get_result()->fetch_assoc();
+        return $result;
     }
 
     //sending message to other devices
