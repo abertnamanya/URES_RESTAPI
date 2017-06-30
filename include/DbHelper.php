@@ -340,4 +340,80 @@ class DbHelper {
         return $result;
     }
 
+//latest news
+    public function fetch_latestNews($university_id) {
+        $stmt = $this->con->prepare('select * from news n left join news_categories c on(n.category_category_id=c.category_id) where n.university_university_id=? order by news_id desc');
+        $stmt->bind_param('s', $university_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $stmt->close();
+        return $result;
+    }
+
+    //add my favourite news
+    public function submitMyNews($news_id, $student_id) {
+        $time_stamp = $this->getDatetimeNow();
+        $stmt = $this->con->prepare('insert into my_news(news_news_id,student_student_id,time_stamp) values(?,?,?)');
+        $stmt->bind_param('sss', $news_id, $student_id, $time_stamp);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    //check if favourte news already exists
+    public function newsExists($news_id, $student_id) {
+        $stmt = $this->con->prepare('select * from my_news where news_news_id=? && student_student_id=?');
+        $stmt->bind_param('ss', $news_id, $student_id);
+        $stmt->execute();
+        $stmt->store_result();
+        $num_rows = $stmt->num_rows;
+        $stmt->close();
+        return $num_rows > 0;
+    }
+
+    //show my news
+    public function fetch_myNews($student_id) {
+        $stmt = $this->con->prepare('select * from news n left join news_categories c on(n.category_category_id=c.category_id) Left JOIN my_news m on(n.news_id=m.news_news_id) where m.student_student_id=? order by my_news_id desc');
+        $stmt->bind_param('s', $student_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $stmt->close();
+        return $result;
+    }
+
+    //fetch news views
+    public function newsViews($news_id) {
+        $stmt = $this->con->prepare('select views_count from news where news_id=?');
+        $stmt->bind_param('s', $news_id);
+        $stmt->execute();
+        $result = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $result;
+    }
+
+    //update the number of views
+    function updateNews($news_id, $updateCount) {
+        $stmt = $this->con->prepare('update news set views_count=? where news_id=?');
+        $stmt->bind_param('ss', $updateCount, $news_id);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    function fetch_most_viewd_News($university_id) {
+        $stmt = $this->con->prepare('select * from news n left join news_categories c on(n.category_category_id=c.category_id) where n.university_university_id=? && views_count>12 limit 12 ');
+        $stmt->bind_param('s', $university_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $stmt->close();
+        return $result;
+    }
+
+    function fetch_events($university_id) {
+        $stmt = $this->con->prepare('select *,DATE_FORMAT(time_stamp,\'%d %M %Y\') as time_stamp from campus_events where university_university_id=?');
+        $stmt->bind_param('s', $university_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $stmt->close();
+        return $result;
+    }
+
 }

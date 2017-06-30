@@ -125,6 +125,8 @@ $app->post('/registration', function($request, $res, $args) {
 require '../v1/courseUnits.php';
 require '../v1/marks.php';
 require '../v1/chat.php';
+require '../v1/campusNews.php';
+require '../v1/campusEvents.php';
 
 function echoRespnse($status_code, $response) {
     echo json_encode($response);
