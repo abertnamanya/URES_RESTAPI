@@ -34,7 +34,7 @@ class DbHelper {
 //check if the user exist
     public function studentLogin($reg_number, $password) {
         // $password = md5($pass);
-        $stmt = $this->con->prepare("SELECT * FROM student_auth WHERE registration_auth=? and password_auth=?");
+        $stmt = $this->con->prepare("SELECT * FROM student WHERE registration_number=? and password=? && status=0");
         $stmt->bind_param("ss", $reg_number, $password);
         $stmt->execute();
         $stmt->store_result();
@@ -47,17 +47,28 @@ class DbHelper {
 
     //if exists fetch the user details
     public function user_details($registration_number) {
-        $stmt = $this->con->prepare("SELECT * FROM student where registration_number=?");
+        $stmt = $this->con->prepare("SELECT student_id,firstName,lastName,registration_number,universities_university_id FROM student where registration_number=?");
         $stmt->bind_param('s', $registration_number);
         $stmt->execute();
-        $student = $stmt->get_result()->fetch_assoc();
+        $stmt->bind_result($student_id, $firstName, $lastName, $registration_number, $universities_university_id);
+        $feed = array();
+        while ($stmt->fetch()) {
+            $data['student_id'] = $student_id;
+            $data['firstName'] = $firstName;
+            $data['lastName'] = $lastName;
+            $data['registration_number'] = $registration_number;
+            $data['university_id'] = $universities_university_id;
+            $data['status'] = true;
+            $data['message'] = "Login successfull";
+            array_push($feed, $data);
+        }
         $stmt->close();
-        return $student;
+        return $feed;
     }
 
     //match student old password
     function checkPassword($student_id, $old_password) {
-        $stmt = $this->con->prepare("SELECT * FROM student_auth WHERE student_student_id=? and password_auth=?");
+        $stmt = $this->con->prepare("SELECT * FROM student WHERE student_id=? and password=?");
         $stmt->bind_param("ss", $student_id, $old_password);
         $stmt->execute();
         $stmt->store_result();
@@ -70,7 +81,7 @@ class DbHelper {
 
     //change password
     function change_password($student_id, $new_password) {
-        $stmt = $this->con->prepare('update student_auth set password_auth=? where student_student_id=?');
+        $stmt = $this->con->prepare('update student set password=? where student_id=?');
         $stmt->bind_param('ss', $new_password, $student_id);
         $stmt->execute();
         $stmt->close();
@@ -78,13 +89,33 @@ class DbHelper {
 
     //registered academic years
     public function studentAcademicYears($student_id) {
-        $stmt = $this->con->prepare('select *,ra._when_added as time_stamp from registered_academic_years ra LEFT JOIN academic_years ac ON(ra.academic_years_years_id=ac.academic_year_id)'
+        $stmt = $this->con->prepare('select registered_academic_years_id,academic_year,semester,academic_years_years_id,'
+                . 'semester_semester_id,ra._when_added as time_stamp from registered_academic_years ra LEFT JOIN academic_years ac ON(ra.academic_years_years_id=ac.academic_year_id)'
                 . ' LEFT JOIN semesters s ON(ra.semester_semester_id=s.semester_id) where student_student_id=?');
         $stmt->bind_param('s', $student_id);
         $stmt->execute();
-        $result = $stmt->get_result();
+        $stmt->store_result();
+        $stmt->bind_result($data[0], $data[1], $data[2], $data[3], $data[4], $data[5]);
+        $response = array();
+        $response['success'] = true;
+        if ($stmt->num_rows > 0) {
+            $response['data'] = array();
+            while ($stmt->fetch()) {
+                $data['id'] = $data[0];
+                $data['academic_year'] = $data[1];
+                $data['semester'] = $data[2];
+                $data['academic_years_years_id'] = $data[3];
+                $data['semester_semester_id'] = $data[4];
+                $data['time_stamp'] = date("F Y", strtotime($data[5]));
+                //date("jS F, Y", strtotime("11/12/10"))
+                array_push($response['data'], $data);
+            }
+        } else {
+            $response['success'] = false;
+        }
+
         $stmt->close();
-        return $result;
+        return $response;
     }
 
     //first student details
@@ -97,23 +128,34 @@ class DbHelper {
         return $data;
     }
 
+    public function fetch_student_course($student_id) {
+        $stmt = $this->con->prepare('select courses_course_id from student where student_id=?');
+        $stmt->bind_param('s', $student_id);
+        $stmt->execute();
+        return $stmt;
+    }
+
     //all university academic years
     public function university_academic_years($university_id) {
         //university  academic years
-        $stmt = $this->con->prepare('select * from academic_years where university_university_id=?');
+        $stmt = $this->con->prepare('select academic_year_id,academic_year from academic_years where university_university_id=? && academic_years.status=0');
         $stmt->bind_param('s', $university_id);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $stmt->close();
-        return $result;
+        return $stmt;
     }
 
     public function semesters() {
-        $stmt = $this->con->prepare('select * from semesters');
+        $response = array();
+        $sql = "select semester_id,semester from semesters";
+        $stmt = $this->con->prepare($sql);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $stmt->close();
-        return $result;
+        $stmt->bind_result($semester_id, $semester);
+        while ($stmt->fetch()) {
+            $data['id'] = $semester_id;
+            $data['semester'] = $semester;
+            array_push($response, $data);
+        }
+        return $response;
     }
 
     //check if the student already registered
@@ -135,17 +177,47 @@ class DbHelper {
                 . 'VALUES(?,?,?,?)');
         $stmt->bind_param('ssss', $student_id, $academic_year, $semester, $time_stamp);
         $stmt->execute();
+        $lastInsertId = $this->con->insert_id;
         $stmt->close();
+        return $lastInsertId;
+    }
+
+    public function register_units($student_id, $academic_year, $semester, $registered_academic_years_id) {
+        //fetch un  
+        $course = $this->student_Course($student_id);
+        $stmt = $this->con->prepare('select assigned_units.course_unit_unit_id from assigned_units where academic_academic_year_id=? && semester_semester_id=?'
+                . ' && 	course_course_id=?');
+        $stmt->bind_param('sss', $academic_year, $semester, $course);
+        $stmt->execute();
+        $stmt->bind_result($data[0]);
+
+        $insert_stmt = $this->con->prepare('INSERT INTO registered_course_units(course_units_units_id,student_student_id,registered_academic_years_id)'
+                . ' values(?,?,?)');
+        while ($stmt->fetch()) {
+            $insert_stmt->bind_param('sss', $data[0], $student_id, $registered_academic_years_id);
+            $insert_stmt->execute();
+
+            print_r($data[0], $student_id, $registered_academic_years_id);
+        }
+//        $insert_stmt->close();
+        $stmt->close();
+    }
+
+    public function student_Course($student_id) {
+        $stmt = $this->con->prepare('select courses_course_id,lastName from student where student_id=?');
+        $stmt->bind_param('s', $student_id);
+        $stmt->execute();
+        $stmt->bind_result($data[0], $data[1]);
+        $stmt->fetch();
+        return $data[0];
     }
 
     //course units
     public function course_units($student_id, $register_year_id) {
-        $stmt = $this->con->prepare('select * from registered_course_units rc left join course_units c ON(rc.course_units_units_id=c.course_unit_id) where student_student_id=? and registered_academic_years_id=?');
+        $stmt = $this->con->prepare('select course_unit_code,course_unit from registered_course_units rc left join course_units c ON(rc.course_units_units_id=c.course_unit_id) where student_student_id=? and registered_academic_years_id=?');
         $stmt->bind_param('ss', $student_id, $register_year_id);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $stmt->close();
-        return $result;
+        return $stmt;
     }
 
 //all course units
@@ -156,6 +228,40 @@ class DbHelper {
         $result = $stmt->get_result();
         $stmt->close();
         return $result;
+    }
+
+    public function academic_year_units($year, $semester, $course_id) {
+        $stmt = $this->con->prepare('select course_unit_code,course_unit from assigned_units au '
+                . 'left join course_units c ON(au.course_unit_unit_id=c.course_unit_id) '
+                . 'where au.academic_academic_year_id=? and au.semester_semester_id=? && course_course_id=?');
+        $stmt->bind_param('sss', $year, $semester, $course_id);
+        $stmt->execute();
+        return $stmt;
+    }
+
+    //fetch all the non registered course units 
+    public function fetch_non_registered_units($registerd_year_id, $student_id) {
+        $course_id = $this->student_Course($student_id);
+        $stmt_year_fetch = $this->registered_year($registerd_year_id);
+        $stmt_year_fetch->bind_result($data[0], $data[1]);
+        $stmt_year_fetch->fetch();
+        $stmt_year_fetch->close();
+        $stmt = $this->con->prepare('select course_unit_id,course_unit_code,course_unit from assigned_units au left join'
+                . ' course_units c on(au.course_unit_unit_id=c.course_unit_id) '
+                . 'where au.course_course_id=? && au.academic_academic_year_id=? && au.semester_semester_id=?'
+                . ' && au.course_unit_unit_id NOT IN (select course_units_units_id '
+                . 'from registered_course_units rc where registered_academic_years_id=? && student_student_id=?)');
+        $stmt->bind_param('sssss', $course_id, $data[0], $data[1], $registerd_year_id, $student_id);
+        $stmt->execute();
+        return $stmt;
+    }
+
+//    fetch student  registered year details
+    private function registered_year($registerd_year_id) {
+        $stmt = $this->con->prepare('select academic_years_years_id,semester_semester_id from registered_academic_years where registered_academic_years_id=?');
+        $stmt->bind_param('s', $registerd_year_id);
+        $stmt->execute();
+        return $stmt;
     }
 
     //register units
@@ -185,22 +291,114 @@ class DbHelper {
 
 
     public function fetch_marks($student_reg, $university_id, $year_id, $semester_id) {
-        $stmt = $this->con->prepare('select * from marks where reg_number=? && university_university_id=? && academic_years_year_id=? && semesters_semester_id=?');
+        $stmt = $this->con->prepare('select course_unit,mark from marks where reg_number=? && university_university_id=? && academic_years_year_id=? && semesters_semester_id=?');
         $stmt->bind_param('ssss', $student_reg, $university_id, $year_id, $semester_id);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $stmt->close();
-        return $result;
+        $stmt->store_result();
+        $stmt->bind_result($course_unit, $mark);
+
+        $response = array();
+        $response['success'] = false;
+        $university = $university_id;
+        if ($stmt->num_rows > 0) {
+            $response['array'] = array();
+            $response['success'] = true;
+            $grading = $this->fetch_grading($university);
+            $grading->bind_result($grade1, $from, $to, $value, $progress);
+            $array_grades = array();
+            while ($grading->fetch()) {
+                $array_grades[] = array("from" => $from, "to" => $to, "grade_value" => $grade1, "value" => $value, "progress" => $progress);
+            }
+            $array_data = array();
+            $data_row = array();
+            while ($stmt->fetch()) {
+                foreach ($array_grades as $grade) {
+                    if ($mark >= $grade["from"] && $mark <= $grade["to"]) {
+
+                        if ($grade["progress"] == 1) {
+                            $data_row[] = array(
+                                "course_unit" => $course_unit,
+                                'mark' => $mark,
+                                "grade_value" => $grade["grade_value"],
+                                "value" => $grade["value"],
+                                "progress" => "Retake"
+                            );
+                        } else {
+                            $data_row[] = array(
+                                "course_unit" => $course_unit,
+                                'mark' => $mark,
+                                "grade_value" => $grade["grade_value"],
+                                "value" => $grade["value"],
+                                "progress" => "Normal Progress"
+                            );
+                        }
+                    }
+                }
+            }
+            return $data_row;
+        }
+    }
+
+    public function fetch_retakes($student_reg, $university_id) {
+        $stmt = $this->con->prepare('select course_unit,mark from marks where reg_number=?'
+                . '&& university_university_id=?');
+        $stmt->bind_param('ss', $student_reg, $university_id);
+        $stmt->execute();
+        $stmt->store_result();
+        $stmt->bind_result($course_unit, $mark);
+
+        $response = array();
+        $response['success'] = false;
+        $university = $university_id;
+        if ($stmt->num_rows > 0) {
+            $response['array'] = array();
+            $response['success'] = true;
+            $grading = $this->fetch_grading($university);
+            $grading->bind_result($grade1, $from, $to, $value, $progress);
+            $array_grades = array();
+            while ($grading->fetch()) {
+                $array_grades[] = array("from" => $from, "to" => $to, "grade_value" => $grade1, "value" => $value, "progress" => $progress);
+            }
+            $array_data = array();
+            $data_row = array();
+            while ($stmt->fetch()) {
+                foreach ($array_grades as $grade) {
+                    if ($mark >= $grade["from"] && $mark <= $grade["to"]) {
+
+                        if ($grade["progress"] == 1) {
+                            $data_row[] = array(
+                                "course_unit" => $course_unit
+                            );
+                        }
+                    }
+                }
+            }
+            return $data_row;
+        }
+    }
+
+    public function fetch_grading($university_id) {
+        $stmt = $this->con->prepare('select grade,value_frm,value_to,grade_value,progress from grading where university_id=?');
+        $stmt->bind_param('s', $university_id);
+        $stmt->execute();
+        return $stmt;
     }
 
     //submit student complaints
-    public function student_complaint($student_id, $title, $description) {
+    public function student_complaint($student_id, $description, $complaint_category, $year, $semester) {
         $time_stamp = $this->getDatetimeNow();
-        $stmt = $this->con->prepare('insert into complaints(title,complaint,student_student_id,_when_added)'
-                . 'VALUES(?,?,?,?)');
-        $stmt->bind_param('ssss', $title, $description, $student_id, $time_stamp);
+        $stmt = $this->con->prepare('INSERT INTO complaints(complaint,student_student_id,type_id,_when_added,year,semester) values(?,?,?,?,?,?)');
+        $stmt->bind_param('ssssss', $description, $student_id, $complaint_category, $time_stamp, $year, $semester);
         $stmt->execute();
         $stmt->close();
+    }
+
+    public function fetch_my_complaints($student_id) {
+        $stmt = $this->con->prepare('select c.complaint_id,c.complaint,t.type,c._status from complaints c left join '
+                . 'complaint_types t on(c.type_id=t.complaint_types_id) where c.student_student_id=?');
+        $stmt->bind_param('s', $student_id);
+        $stmt->execute();
+        return $stmt;
     }
 
     //chat
@@ -223,6 +421,21 @@ class DbHelper {
         $result = $stmt->get_result();
         $stmt->close();
         return $result;
+    }
+
+    public function fetch_other_groups($student_id, $university_id) {
+        $stmt = $this->con->prepare('select g.group_id,g.group_name from chatgroups g where g.status=0 && g.university_id=? && g.group_id not in(select m.group_group_id from group_members m where student_student_id=?)');
+        $stmt->bind_param('ss', $university_id, $student_id);
+        $stmt->execute();
+        return $stmt;
+    }
+
+    public function insert_request($user, $student_id, $group_id) {
+        $stmt = $this->con->prepare('insert into group_members(role,student_student_id,group_group_id) '
+                . 'values(?,?,?)');
+        $stmt->bind_param('sss', $user, $student_id, $group_id);
+        $stmt->execute();
+        $stmt->close();
     }
 
     //create group
@@ -342,12 +555,11 @@ class DbHelper {
 
 //latest news
     public function fetch_latestNews($university_id) {
-        $stmt = $this->con->prepare('select * from news n left join news_categories c on(n.category_category_id=c.category_id) where n.university_university_id=? order by news_id desc');
+        $stmt = $this->con->prepare('select news_id,title,news_detail,_when_added,image from news'
+                . ' where university_university_id=? order by news_id desc');
         $stmt->bind_param('s', $university_id);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $stmt->close();
-        return $result;
+        return $stmt;
     }
 
     //add my favourite news
@@ -408,12 +620,41 @@ class DbHelper {
     }
 
     function fetch_events($university_id) {
-        $stmt = $this->con->prepare('select *,DATE_FORMAT(time_stamp,\'%d %M %Y\') as time_stamp from campus_events where university_university_id=?');
+        $stmt = $this->con->prepare('select event_id,title,event_detail,time_stamp '
+                . 'from campus_events where university_university_id=?');
         $stmt->bind_param('s', $university_id);
         $stmt->execute();
-        $result = $stmt->get_result();
+        return $stmt;
+    }
+
+    function fetch_complait_categories($university_id) {
+        $stmt = $this->con->prepare('select complaint_types_id,type from complaint_types where university_university_id=?');
+        $stmt->bind_param('s', $university_id);
+        $stmt->execute();
+        return $stmt;
+    }
+
+    public function fetch_suggestions($university_id) {
+        $stmt = $this->con->prepare('select suggestion_box_id,suggestion,sent_time from suggestion_box where university_university_id=? order by suggestion_box_id desc');
+        $stmt->bind_param('s', $university_id);
+        $stmt->execute();
+        return $stmt;
+    }
+
+    public function insert_suggestion($suggestion, $university_id, $student_id) {
+        $stmt = $this->con->prepare('insert into suggestion_box(suggestion,student_student_id,university_university_id)'
+                . 'values(?,?,?)');
+        $stmt->bind_param('sss', $suggestion, $student_id, $university_id);
+        $stmt->execute();
         $stmt->close();
-        return $result;
+    }
+
+    public function fetch_counsellors($university_id) {
+        $stmt = $this->con->prepare('select u.firstName,u.lastName,TIMESTAMPDIFF(MINUTE, u.last_login, NOW()) as last_login,u.user_id from counsellors c left join users u on(c.user_id=u.user_id)'
+                . ' where university_id=?');
+        $stmt->bind_param('s', $university_id);
+        $stmt->execute();
+        return $stmt;
     }
 
 }

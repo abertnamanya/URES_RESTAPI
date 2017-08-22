@@ -35,6 +35,29 @@ $app->post('/chat_groups', function($request, $res, $args) {
     echoRespnse(200, $response);
 });
 
+$app->post('/other_groups', function($request, $res, $args) {
+    $student_id = $request->getParam('student_id');
+    $university_id = $request->getParam('university_id');
+    $db = new DbHelper();
+    $stmt = $db->fetch_other_groups($student_id, $university_id);
+    $stmt->bind_result($group_id, $group_name);
+    $response = array();
+    while ($stmt->fetch()) {
+        $data['group_id'] = $group_id;
+        $data['group_name'] = $group_name;
+        array_push($response, $data);
+    }
+    echoRespnse(200, $response);
+});
+$app->post('/request_group_membership', function($request, $res, $args) {
+    $student_id = $request->getParam('student_id');
+    $group_id = $request->getParam('group_id');
+    $user = 'user';
+    $db = new DbHelper();
+    $db->insert_request($user, $student_id, $group_id);
+    echo 'membership granted successfully';
+});
+//
 //register group
 
 $app->post('/add_group', function($request, $res, $args) {
@@ -219,6 +242,29 @@ $app->get('/messages', function () use ($app) {
         $temp['sentat'] = $row['time_stamp'];
         $temp['name'] = $row['firstName'];
         array_push($response['messages'], $temp);
+    }
+    echoRespnse(200, $response);
+});
+
+
+$app->post('/counsellor_chat', function($request, $res, $args) {
+    $university_id = $request->getParam('university_id');
+    $student_reg = $request->getParam('student_reg');
+    $group_id = $request->getParam('group_id');
+    $db = new DbHelper();
+    $result = $db->search_student($university_id, $student_reg);
+    $response = array();
+    if ($result) {
+        ///$response['student'] = array();
+        $response['student_id'] = $result['student_id'];
+        $response['firstName'] = $result['firstName'];
+        $response['lastName'] = $result['lastName'];
+        $response['group_id'] = $group_id;
+        $response['error'] = false;
+        $response['message'] = "student found";
+    } else {
+        $response['error'] = TRUE;
+        $response['message'] = "student not found please try again";
     }
     echoRespnse(200, $response);
 });
